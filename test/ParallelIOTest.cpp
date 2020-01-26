@@ -85,6 +85,7 @@ void write_test_zero_extent( bool fileBased, std::string file_ending, bool write
         e["position"]["x"].storeChunk(position_local, {offset}, {rank});
         e["positionOffset"]["x"].storeChunk(positionOffset_local, {offset}, {rank});
     }
+    o.flush();
 
     //TODO read back, verify
 }
@@ -251,7 +252,7 @@ TEST_CASE( "adios_write_test_zero_extent", "[parallel][adios]" )
 TEST_CASE( "adios_write_test_skip_chunk", "[parallel][adios]" )
 {
     write_test_zero_extent( false, "bp", false );
-    write_test_zero_extent( true, "bp", false );
+    write_test_zero_extent( true, "bp", false ); // FIXME ADIOS1 fails with explicit series flush
 }
 
 TEST_CASE( "hzdr_adios_sample_content_test", "[parallel][adios1]" )
