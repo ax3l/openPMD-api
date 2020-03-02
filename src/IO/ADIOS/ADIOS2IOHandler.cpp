@@ -1151,6 +1151,8 @@ namespace detail
                 }
             }
 #endif
+            m_IO.SetParameter( "initialbuffersize", std::to_string(200*1024*1024).append("b") ); // [Bytes]
+            m_IO.SetParameter( "maxbuffersize", std::to_string(1024*1024*1024).append("b") ); // [Bytes]
         }
     }
 
