@@ -57,6 +57,7 @@ class Writable final
     friend class Attributable;
     template< typename T_elem >
     friend class BaseRecord;
+    friend class BaseRecordComponent;
     template<
             typename T,
             typename T_key,
@@ -65,9 +66,13 @@ class Writable final
     friend class Container;
     friend class Iteration;
     friend class Mesh;
+    friend class ParticlePatches;
     friend class ParticleSpecies;
+    friend class PatchRecord;
+    friend class PatchRecordComponent;
     friend class Series;
     friend class Record;
+    friend class RecordComponent;
     friend class ADIOS1IOHandlerImpl;
     friend class ParallelADIOS1IOHandlerImpl;
     friend class ADIOS2IOHandlerImpl;

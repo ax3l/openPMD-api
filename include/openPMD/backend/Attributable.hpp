@@ -190,12 +190,10 @@ OPENPMD_protected:
 
     std::shared_ptr< Writable > m_writable;
     /* views into the resources held by m_writable
-     * purely for convenience so code that uses these does not have to go through m_wriable-> */
+     * purely for convenience so code that uses these does not have to go through m_writable-> */
     AbstractFilePosition* abstractFilePosition;
     AbstractIOHandler* IOHandler;
     Writable* parent;
-    bool& dirty;
-    bool& written;
 
 private:
     virtual void linkHierarchy(std::shared_ptr< Writable > const& w);
@@ -217,7 +215,7 @@ Attributable::setAttribute(std::string const& key, T const& value)
         throw no_such_attribute_error(out_of_range_msg(key));
     }
 
-    dirty = true;
+    m_writable->dirty = true;
     auto it = m_attributes->lower_bound(key);
     if( it != m_attributes->end() && !m_attributes->key_comp()(key, it->first) )
     {

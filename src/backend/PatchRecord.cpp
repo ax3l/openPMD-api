@@ -88,9 +88,9 @@ PatchRecord::read()
         IOHandler->enqueue(IOTask(&prc, dOpen));
         IOHandler->flush();
         /* allow all attributes to be set */
-        prc.written = false;
+        prc.m_writable->written = false;
         prc.resetDataset(Dataset(*dOpen.dtype, *dOpen.extent));
-        prc.written = true;
+        prc.m_writable->written = true;
         prc.read();
     }
 }

@@ -202,7 +202,7 @@ Mesh::flush_impl(std::string const& name)
             comp.second.flush(comp.first);
     } else
     {
-        if( !written )
+        if( !m_writable->written )
         {
             if( scalar() )
             {
@@ -214,7 +214,7 @@ Mesh::flush_impl(std::string const& name)
                 m_writable->abstractFilePosition = mrc.m_writable->abstractFilePosition;
                 mrc.abstractFilePosition = m_writable->abstractFilePosition.get();
                 abstractFilePosition = mrc.abstractFilePosition;
-                written = true;
+                m_writable->written = true;
             } else
             {
                 Parameter< Operation::CREATE_PATH > pCreate;
@@ -323,9 +323,9 @@ Mesh::read()
         this->at(MeshRecordComponent::SCALAR).read();
     } else
     {
-        written = false;
+        m_writable->written = false;
         clear_unchecked();
-        written = true;
+        m_writable->written = true;
         Parameter< Operation::LIST_PATHS > pList;
         IOHandler->enqueue(IOTask(this, pList));
         IOHandler->flush();
@@ -351,9 +351,9 @@ Mesh::read()
             dOpen.name = component;
             IOHandler->enqueue(IOTask(&rc, dOpen));
             IOHandler->flush();
-            rc.written = false;
+            rc.m_writable->written = false;
             rc.resetDataset(Dataset(*dOpen.dtype, *dOpen.extent));
-            rc.written = true;
+            rc.m_writable->written = true;
             rc.read();
         }
     }

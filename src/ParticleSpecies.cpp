@@ -30,9 +30,9 @@ namespace openPMD
 void
 ParticleSpecies::read()
 {
-    written = false;
+    m_writable->written = false;
     clear_unchecked();
-    written = true;
+    m_writable->written = true;
 
     /* obtain all non-scalar records */
     Parameter< Operation::LIST_PATHS > pList;
@@ -90,9 +90,9 @@ ParticleSpecies::read()
             rc.parent = r.parent;
             IOHandler->enqueue(IOTask(&rc, dOpen));
             IOHandler->flush();
-            rc.written = false;
+            rc.m_writable->written = false;
             rc.resetDataset(Dataset(*dOpen.dtype, *dOpen.extent));
-            rc.written = true;
+            rc.m_writable->written = true;
             r.read();
         } catch( std::runtime_error const & )
         {
@@ -147,7 +147,7 @@ ParticleSpecies::flush(std::string const& path)
 bool
 ParticleSpecies::dirtyRecursive() const
 {
-    if( dirty )
+    if( m_writable->dirty )
     {
         return true;
     }

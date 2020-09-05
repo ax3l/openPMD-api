@@ -71,9 +71,9 @@ ParticlePatches::read()
             throw std::runtime_error("Unexpected datatype for " + component_name);
 
         /* allow all attributes to be set */
-        prc.written = false;
+        prc.m_writable->written = false;
         prc.resetDataset(Dataset(*dOpen.dtype, *dOpen.extent));
-        prc.written = true;
+        prc.m_writable->written = true;
     }
 }
 } // openPMD
