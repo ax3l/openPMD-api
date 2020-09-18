@@ -19,34 +19,6 @@ if(POLICY CMP0074)
 endif()
 
 
-# Project structure ###########################################################
-#
-# temporary build directories
-if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        CACHE PATH "Build directory for archives")
-endif()
-if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        CACHE PATH "Build directory for libraries")
-endif()
-if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-        CACHE PATH "Build directory for binaries")
-endif()
-# install directories
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    include(GNUInstallDirs)
-    set(CMAKE_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/openPMD"
-        CACHE PATH "CMake config package location for installed targets")
-    if(WIN32)
-        set(CMAKE_INSTALL_LIBDIR Lib
-            CACHE PATH "Object code libraries")
-        set_property(CACHE CMAKE_INSTALL_CMAKEDIR PROPERTY VALUE "cmake")
-    endif()
-endif()
-
-
 # Options and Variants ########################################################
 #
 function(openpmd_option name description default)
@@ -295,6 +267,64 @@ if(openPMD_HAVE_PYTHON)
     add_library(openPMD::thirdparty::pybind11 INTERFACE IMPORTED)
     target_link_libraries(openPMD::thirdparty::pybind11
         INTERFACE pybind11::pybind11)
+endif()
+
+
+# Output Structure ############################################################
+#
+# build ("output") directories
+if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "lib"
+        CACHE PATH "Build directory for archives")
+endif()
+if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "lib"
+        CACHE PATH "Build directory for libraries")
+endif()
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "bin"
+        CACHE PATH "Build directory for binaries")
+endif()
+if(openPMD_HAVE_PYTHON)
+    if(WIN32)
+        set(CMAKE_OUTPUT_PYTHONDIR_DEFAULT "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/site-packages")
+    else()
+        set(CMAKE_OUTPUT_PYTHONDIR_DEFAULT
+            "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages"
+        )
+    endif()
+    if(NOT CMAKE_PYTHON_OUTPUT_DIRECTORY)
+        set(CMAKE_PYTHON_OUTPUT_DIRECTORY
+            "${CMAKE_OUTPUT_PYTHONDIR_DEFAULT}"
+            CACHE PATH "Build directory for python modules"
+        )
+    endif()
+endif()
+
+# install directories
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    include(GNUInstallDirs)
+    set(CMAKE_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/openPMD"
+        CACHE PATH "CMake config package location for installed targets")
+    if(WIN32)
+        set(CMAKE_INSTALL_LIBDIR Lib
+            CACHE PATH "Object code libraries")
+        set_property(CACHE CMAKE_INSTALL_CMAKEDIR PROPERTY VALUE "cmake")
+    endif()
+endif()
+if(openPMD_HAVE_PYTHON)
+    if(WIN32)
+        set(CMAKE_INSTALL_PYTHONDIR_DEFAULT "${CMAKE_INSTALL_LIBDIR}/site-packages")
+    else()
+        set(CMAKE_INSTALL_PYTHONDIR_DEFAULT
+            "${CMAKE_INSTALL_LIBDIR}/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages"
+        )
+    endif()
+    if(NOT CMAKE_INSTALL_PYTHONDIR)
+        set(CMAKE_INSTALL_PYTHONDIR "${CMAKE_INSTALL_PYTHONDIR_DEFAULT}"
+            CACHE STRING "Location for installed python package"
+        )
+    endif()
 endif()
 
 
@@ -571,22 +601,6 @@ if(openPMD_HAVE_PYTHON)
                 PRIVATE -ftemplate-depth=1024)
     endif()
 
-    if(WIN32)
-        set(CMAKE_INSTALL_PYTHONDIR_DEFAULT
-            "${CMAKE_INSTALL_LIBDIR}/site-packages"
-        )
-    else()
-        set(CMAKE_INSTALL_PYTHONDIR_DEFAULT
-            "${CMAKE_INSTALL_LIBDIR}/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages"
-        )
-    endif()
-    set(CMAKE_INSTALL_PYTHONDIR "${CMAKE_INSTALL_PYTHONDIR_DEFAULT}"
-        CACHE STRING "Location for installed python package"
-    )
-    set(CMAKE_PYTHON_OUTPUT_DIRECTORY
-        "${openPMD_BINARY_DIR}/${CMAKE_INSTALL_PYTHONDIR}"
-        CACHE PATH "Build directory for python modules"
-    )
     set_target_properties(openPMD.py PROPERTIES
         ARCHIVE_OUTPUT_NAME openpmd_api_cxx
         LIBRARY_OUTPUT_NAME openpmd_api_cxx
