@@ -968,6 +968,9 @@ class APITest(unittest.TestCase):
         extent = [4, 2, 3]
         E_x_data = E_x.load_chunk(offset, extent)
         E_x_data_slice = E_x[4:8, 5:7, 9:12]
+        E_x_data_zero = E_x[0:0, 0:0, 0:0]
+        E_x_data_zero_spl = E_x[0:0]
+        E_x.series_flush()
 
         y_data = pos_y.load_chunk([200000, ], [10, ])
         w_data = w.load_chunk([200000, ], [10, ])
@@ -977,6 +980,13 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(E_x_data.dtype, E_x.dtype)
         self.assertEqual(E_x_data.dtype, E_x_data_slice.dtype)
+        self.assertEqual(E_x_data.dtype, E_x_data_zero.dtype)
+        self.assertEqual(len(E_x_data_zero), 0)
+        self.assertEqual(E_x_data_zero.shape, (0, 0, 0,))
+        self.assertEqual(E_x_data_zero.ndim, 3)
+        self.assertEqual(len(E_x_data_zero_spl), 0)
+        self.assertEqual(E_x_data_zero_spl.shape, (0, 26, 201,))
+        self.assertEqual(E_x_data_zero_spl.ndim, 3)
         self.assertEqual(y_data.dtype, pos_y.dtype)
         self.assertEqual(w_data.dtype, w.dtype)
         self.assertEqual(y_data.dtype, y_data_slice.dtype)

@@ -606,6 +606,15 @@ TEST_CASE( "wrapper_test", "[core]" )
     REQUIRE(mrc2.m_chunks->empty());
 #endif
 
+    // make sure we can read zero-extents
+    auto zero_data = o.iterations[4].meshes["E"]["y"].loadChunk<double>({0}, {0});
+    o.iterations[4].meshes["E"]["y"].seriesFlush();
+    o.flush();
+    double more_zero_data = 0.0;
+    o.iterations[4].meshes["E"]["y"].loadChunk<double>(shareRaw(&more_zero_data), {0}, {0});
+    o.iterations[4].meshes["E"]["y"].seriesFlush();
+    o.flush();
+
     MeshRecordComponent mrc3 = o.iterations[5].meshes["E"]["y"];
     o.iterations[5].meshes["E"]["y"].resetDataset(Dataset(Datatype::DOUBLE, {1}));
     int wrongData = 42;

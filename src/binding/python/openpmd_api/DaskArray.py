@@ -36,15 +36,6 @@ class DaskRecordComponent:
         """here we support what Record_Component implements: a tuple of slices,
         a slice or an index; we do not support fancy indexing
         """
-        # FIXME: implement handling of zero-slices in Record_Component
-        # https://github.com/openPMD/openPMD-api/issues/957
-        all_zero = True
-        for s in slices:
-            if s != np.s_[0:0]:
-                all_zero = False
-        if all_zero:
-            return np.array([], dtype=self.dtype)
-
         data = self.rc[slices]
         self.rc.series_flush()
         if not math.isclose(1.0, self.rc.unit_SI):
