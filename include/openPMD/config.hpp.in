@@ -37,3 +37,7 @@
 #ifndef openPMD_HAVE_ADIOS2
 #   cmakedefine01 openPMD_HAVE_ADIOS2
 #endif
+
+#ifndef openPMD_HAS_CXX17_VARIANT
+#   cmakedefine01 openPMD_HAS_CXX17_VARIANT
+#endif

@@ -20,7 +20,10 @@
  */
 #pragma once
 
-#if __cplusplus >= 201703L
+#include "openPMD/config.hpp"
+
+
+#if openPMD_HAS_CXX17_VARIANT
 #   include <variant> // IWYU pragma: export
 namespace variantSrc = std;
 #else

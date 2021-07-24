@@ -454,25 +454,28 @@ target_include_directories(openPMD PUBLIC
 )
 
 # C++11 std::variant (C++17 stdlib preview)
-# TODO not needed with C++17 compiler
-add_library(openPMD::thirdparty::mpark_variant INTERFACE IMPORTED)
-set(openPMD_PC_EXTRA_INCLUDE "")
-if(openPMD_USE_INTERNAL_VARIANT)
-    target_include_directories(openPMD::thirdparty::mpark_variant SYSTEM INTERFACE
-        $<BUILD_INTERFACE:${openPMD_SOURCE_DIR}/share/openPMD/thirdParty/variant/include>
-    )
-    message(STATUS "MPark.Variant: Using INTERNAL version '1.4.0'")
-else()
-    find_package(mpark_variant 1.3.0 REQUIRED) # TODO: we want 1.4.1+
-    target_link_libraries(openPMD::thirdparty::mpark_variant
-        INTERFACE mpark_variant)
-    get_target_property(EXTERNAL_MPARK_INCLUDE mpark_variant INTERFACE_INCLUDE_DIRECTORIES)
-    if(openPMD_HAVE_PKGCONFIG AND EXTERNAL_MPARK_INCLUDE)
-        set(openPMD_PC_EXTRA_INCLUDE "-I${EXTERNAL_MPARK_INCLUDE}")
+include(CheckIncludeFileCXX)
+CHECK_INCLUDE_FILE_CXX(variant openPMD_HAS_CXX17_VARIANT)
+if(NOT openPMD_HAS_CXX17_VARIANT)
+    add_library(openPMD::thirdparty::mpark_variant INTERFACE IMPORTED)
+    set(openPMD_PC_EXTRA_INCLUDE "")
+    if(openPMD_USE_INTERNAL_VARIANT)
+        target_include_directories(openPMD::thirdparty::mpark_variant SYSTEM INTERFACE
+            $<BUILD_INTERFACE:${openPMD_SOURCE_DIR}/share/openPMD/thirdParty/variant/include>
+        )
+        message(STATUS "MPark.Variant: Using INTERNAL version '1.4.0'")
+    else()
+        find_package(mpark_variant 1.3.0 REQUIRED) # TODO: we want 1.4.1+
+        target_link_libraries(openPMD::thirdparty::mpark_variant
+            INTERFACE mpark_variant)
+        get_target_property(EXTERNAL_MPARK_INCLUDE mpark_variant INTERFACE_INCLUDE_DIRECTORIES)
+        if(openPMD_HAVE_PKGCONFIG AND EXTERNAL_MPARK_INCLUDE)
+            set(openPMD_PC_EXTRA_INCLUDE "-I${EXTERNAL_MPARK_INCLUDE}")
+        endif()
+        message(STATUS "MPark.Variant: Found version '${mpark_variant_VERSION}'")
     endif()
-    message(STATUS "MPark.Variant: Found version '${mpark_variant_VERSION}'")
+    target_link_libraries(openPMD PUBLIC openPMD::thirdparty::mpark_variant)
 endif()
-target_link_libraries(openPMD PUBLIC openPMD::thirdparty::mpark_variant)
 
 # Catch2 for unit tests
 if(openPMD_BUILD_TESTING)
@@ -518,8 +521,10 @@ if(openPMD_HAVE_ADIOS1)
     )
     target_compile_options(openPMD.ADIOS1.Serial PUBLIC ${_msvc_options})
     target_compile_options(openPMD.ADIOS1.Parallel PUBLIC ${_msvc_options})
-    target_link_libraries(openPMD.ADIOS1.Serial PUBLIC openPMD::thirdparty::mpark_variant)
-    target_link_libraries(openPMD.ADIOS1.Parallel PUBLIC openPMD::thirdparty::mpark_variant)
+    if(NOT openPMD_HAS_CXX17_VARIANT)
+        target_link_libraries(openPMD.ADIOS1.Serial PUBLIC openPMD::thirdparty::mpark_variant)
+        target_link_libraries(openPMD.ADIOS1.Parallel PUBLIC openPMD::thirdparty::mpark_variant)
+    endif()
 
     target_include_directories(openPMD.ADIOS1.Serial SYSTEM PRIVATE
         ${openPMD_SOURCE_DIR}/include ${openPMD_BINARY_DIR}/include)
@@ -1361,6 +1366,11 @@ message("  Examples: ${openPMD_BUILD_EXAMPLES}")
 message("  Testing: ${openPMD_BUILD_TESTING}")
 message("  Invasive Tests: ${openPMD_USE_INVASIVE_TESTS}")
 message("  Internal VERIFY: ${openPMD_USE_VERIFY}")
+if(openPMD_HAS_CXX17_VARIANT)
+    message("  C++17 Variant: ON")
+else()
+    message("  C++17 Variant: OFF")
+endif()
 message("  Build Options:")
 
 foreach(opt IN LISTS openPMD_CONFIG_OPTIONS)
