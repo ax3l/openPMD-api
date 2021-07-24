@@ -21,7 +21,8 @@ jobs:
           -DCMAKE_C_COMPILER=$(which icc)    \
           -DCMAKE_CXX_COMPILER=$(which icpc) \
           -DopenPMD_USE_PYTHON=OFF           \
-          -DopenPMD_USE_MPI=OFF
+          -DopenPMD_USE_MPI=OFF              \
+          -DCMAKE_CXX_STANDARD=17
         cmake --build build --parallel 2
         ctest --test-dir build --output-on-failure
 
@@ -43,6 +44,7 @@ jobs:
           -DCMAKE_C_COMPILER=$(which icx)    \
           -DCMAKE_CXX_COMPILER=$(which icpx) \
           -DopenPMD_USE_PYTHON=OFF           \
-          -DopenPMD_USE_MPI=OFF
+          -DopenPMD_USE_MPI=OFF              \
+          -DCMAKE_CXX_STANDARD=17
         cmake --build build --parallel 2
         ctest --test-dir build --output-on-failure
