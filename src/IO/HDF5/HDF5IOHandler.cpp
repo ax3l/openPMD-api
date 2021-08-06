@@ -995,6 +995,12 @@ HDF5IOHandlerImpl::writeAttribute(Writable* writable,
     VERIFY(node_id >= 0, "[HDF5] Internal error: Failed to open HDF5 object during attribute write");
     Attribute const att(parameters.resource);
     Datatype dtype = parameters.dtype;
+
+    if( att.dtype == Datatype::STRING )
+        std::cout << "[HDF5] writeAttribute: " << parameters.name
+                  << " (" << att.get<std::string>() << ")"
+                  << std::endl;
+
     herr_t status;
     GetH5DataType getH5DataType({
         { typeid(bool).name(), m_H5T_BOOL_ENUM },
