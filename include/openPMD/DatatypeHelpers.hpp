@@ -83,6 +83,7 @@ struct CallUndefinedDatatype
         {
             return Action::template call< n >( std::forward< Args >( args )... );
         }
+        throw std::runtime_error( "Unreachable!" );
     }
 };
 }
