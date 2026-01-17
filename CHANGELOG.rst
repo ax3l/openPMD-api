@@ -3,6 +3,28 @@
 Changelog
 =========
 
+0.18.0
+------
+**Date:** TBA
+
+[Title]
+
+[Summary]
+
+Changes to "0.17.0"
+^^^^^^^^^^^^^^^^^^^
+
+Features
+""""""""
+
+Bug Fixes
+"""""""""
+
+Other
+"""""
+
+
+
 0.17.0
 ------
 **Date:** 2025-01-17
