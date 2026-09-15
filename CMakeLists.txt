@@ -1059,7 +1059,7 @@ function(openpmdreclibs tgtname outname)
            openpmdreclibs(${PC_LIB} ${outname})
        else()
            if(PC_LIB)
-               string(APPEND ${outname} " ${PC_LIB}")
+               openpmd_pc_escape(${outname} "${PC_LIB}")
            endif()
        endif()
     endforeach()
@@ -1086,6 +1086,38 @@ if(openPMD_HAVE_PKGCONFIG)
         endif()
     endforeach()
     unset(openPMD_PC_DIR)
+    # public usage requirements of the openPMD target
+    set(openPMD_PC_PUBLIC_CFLAGS "")
+    set(openPMD_PC_PUBLIC_LIBS "")
+    #   C++17 (see openpmd_cxx_required): always explicit, since consumers
+    #   might use a compiler (version) that defaults to an older standard
+    openpmd_pc_escape(openPMD_PC_PUBLIC_CFLAGS
+        "${CMAKE_CXX17_STANDARD_COMPILE_OPTION}")
+    #   MPI: public headers include mpi.h and call MPI functions; the
+    #   MPI::MPI_<lang> target properties contain generator expressions,
+    #   thus we use the (plain) FindMPI result variables
+    if(openPMD_HAVE_MPI)
+        foreach(lang IN LISTS openPMD_MPI_NEED_COMPONENTS)
+            set(openPMD_PC_MPI_DEFINES ${MPI_${lang}_COMPILE_DEFINITIONS})
+            list(TRANSFORM openPMD_PC_MPI_DEFINES REPLACE "^(-D)?(.+)$" "-D\\2")
+            set(openPMD_PC_MPI_INCLUDES ${MPI_${lang}_INCLUDE_DIRS})
+            list(TRANSFORM openPMD_PC_MPI_INCLUDES PREPEND "-I")
+            separate_arguments(openPMD_PC_MPI_LINK_FLAGS NATIVE_COMMAND
+                "${MPI_${lang}_LINK_FLAGS}")
+            openpmd_pc_escape(openPMD_PC_PUBLIC_CFLAGS
+                ${MPI_${lang}_COMPILE_OPTIONS}
+                ${openPMD_PC_MPI_DEFINES}
+                ${openPMD_PC_MPI_INCLUDES}
+            )
+            openpmd_pc_escape(openPMD_PC_PUBLIC_LIBS
+                ${openPMD_PC_MPI_LINK_FLAGS}
+                ${MPI_${lang}_LIBRARIES}
+            )
+        endforeach()
+        unset(openPMD_PC_MPI_DEFINES)
+        unset(openPMD_PC_MPI_INCLUDES)
+        unset(openPMD_PC_MPI_LINK_FLAGS)
+    endif()
     # the install prefix is only final at install time, e.g., it can be
     # changed via `cmake --install --prefix`: keep a placeholder for now
     set(openPMD_PC_PREFIX "@openPMD_PC_PREFIX@")

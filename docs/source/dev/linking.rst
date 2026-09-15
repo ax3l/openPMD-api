@@ -85,4 +85,7 @@ Additional linker and compiler flags for your project are available via:
    fi
 
    pkg-config --cflags openPMD
-   # -I${HOME}/somepath/include
+   # -I${HOME}/somepath/include -std=c++17
+
+The compiler flags include the minimum C++ standard required by openPMD-api (e.g., ``-std=c++17``) and, if openPMD-api was built with MPI, the MPI compiler and linker flags.
+If you compile with a newer C++ standard, pass your ``-std=...`` flag *after* the ``pkg-config`` flags.

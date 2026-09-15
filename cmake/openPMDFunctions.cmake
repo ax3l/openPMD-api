@@ -46,3 +46,21 @@ function(openpmd_print_summary)
     endforeach()
     message("")
 endfunction()
+
+
+# Escapes arguments for the Libs and Cflags fields of a pkg-config .pc file
+# and appends them, each prefixed by a space, to the variable <outname>
+#
+function(openpmd_pc_escape outname)
+    set(escaped "${${outname}}")
+    foreach(arg IN LISTS ARGN)
+        if(arg STREQUAL "")
+            continue()
+        endif()
+        # argument vectors are split shell-like and # starts a comment
+        # (not handled: a literal "${" would start a variable reference)
+        string(REGEX REPLACE "([\\\\\"' \t#])" "\\\\\\1" arg "${arg}")
+        string(APPEND escaped " ${arg}")
+    endforeach()
+    set(${outname} "${escaped}" PARENT_SCOPE)
+endfunction()
