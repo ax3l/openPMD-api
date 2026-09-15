@@ -1,7 +1,8 @@
-prefix=@CMAKE_INSTALL_PREFIX@
-exec_prefix=${prefix}/@CMAKE_INSTALL_BINDIR@
-libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+prefix=@openPMD_PC_PREFIX@
+exec_prefix=${prefix}
+bindir=@openPMD_PC_BINDIR@
+libdir=@openPMD_PC_LIBDIR@
+includedir=@openPMD_PC_INCLUDEDIR@
 static=@openPMD_PC_STATIC@
 
 Name: openPMD

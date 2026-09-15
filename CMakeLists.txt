@@ -116,7 +116,7 @@ if(NOT openPMD_INSTALL_CMAKEDIR)
         if(WIN32)
             set(openPMD_INSTALL_CMAKEDIR "cmake")
         else()
-            set(openPMD_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/openPMD")
+            set(openPMD_INSTALL_CMAKEDIR "${openPMD_INSTALL_LIBDIR}/cmake/openPMD")
         endif()
     endif()
 endif()
@@ -682,10 +682,10 @@ if(openPMD_HAVE_PYTHON)
 
     if(WIN32)
         set(openPMD_INSTALL_PYTHONDIR_DEFAULT
-            "${CMAKE_INSTALL_LIBDIR}/site-packages")
+            "${openPMD_INSTALL_LIBDIR}/site-packages")
     else()
         set(openPMD_INSTALL_PYTHONDIR_DEFAULT
-            "${CMAKE_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages"
+            "${openPMD_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages"
         )
     endif()
     set(openPMD_INSTALL_PYTHONDIR "${openPMD_INSTALL_PYTHONDIR_DEFAULT}"
@@ -1073,9 +1073,25 @@ if(openPMD_HAVE_PKGCONFIG)
     else()
         set(openPMD_PC_STATIC true)
     endif()
+    # same install directories as in install(): relative paths are relative
+    # to the install prefix, absolute paths (e.g., Nix) are used as they are
+    foreach(dir IN ITEMS BINDIR INCLUDEDIR LIBDIR)
+        cmake_path(SET openPMD_PC_DIR "${openPMD_INSTALL_${dir}}")
+        if(IS_ABSOLUTE "${openPMD_PC_DIR}")
+            set(openPMD_PC_${dir} "${openPMD_PC_DIR}")
+        elseif(dir STREQUAL INCLUDEDIR)
+            set(openPMD_PC_${dir} "\${prefix}/${openPMD_PC_DIR}")
+        else()
+            set(openPMD_PC_${dir} "\${exec_prefix}/${openPMD_PC_DIR}")
+        endif()
+    endforeach()
+    unset(openPMD_PC_DIR)
+    # the install prefix is only final at install time, e.g., it can be
+    # changed via `cmake --install --prefix`: keep a placeholder for now
+    set(openPMD_PC_PREFIX "@openPMD_PC_PREFIX@")
     configure_file(
         ${openPMD_SOURCE_DIR}/openPMD.pc.in
-        ${openPMD_BINARY_DIR}/openPMD.pc
+        ${openPMD_BINARY_DIR}/openPMD.pc.noprefix
         @ONLY
     )
 endif()
@@ -1181,6 +1197,22 @@ if(openPMD_INSTALL)
     #   because they compile manually on the command line or write their
     #   Makefiles by hand.
     if(openPMD_HAVE_PKGCONFIG)
+        # substitute the install prefix as used at install time
+        # (plain string replacement: the paths of dependencies must not be
+        #  scanned again for @VAR@ patterns; the placeholder is a bracket
+        #  argument because install scripts run with CMP0053 unset, which
+        #  would otherwise evaluate it as a variable reference)
+        install(CODE "
+            cmake_path(SET openPMD_PC_PREFIX \"\${CMAKE_INSTALL_PREFIX}\")
+            file(READ [==[${openPMD_BINARY_DIR}/openPMD.pc.noprefix]==] openPMD_PC)
+            string(REPLACE [==[@openPMD_PC_PREFIX@]==] \"\${openPMD_PC_PREFIX}\" openPMD_PC \"\${openPMD_PC}\")
+            file(WRITE [==[${openPMD_BINARY_DIR}/openPMD.pc.tmp]==] \"\${openPMD_PC}\")
+            configure_file(
+                [==[${openPMD_BINARY_DIR}/openPMD.pc.tmp]==]
+                [==[${openPMD_BINARY_DIR}/openPMD.pc]==]
+                COPYONLY
+            )
+        ")
         install(
             FILES       ${openPMD_BINARY_DIR}/openPMD.pc
             DESTINATION ${openPMD_INSTALL_LIBDIR}/pkgconfig
