@@ -3,11 +3,18 @@
 
 version: 2
 updates:
-  # Maintain dependencies for GitHub Actions
+  # Maintain dependencies for GitHub Actions (default branch: dev)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "monthly"
+    # One PR for all actions (e.g., `actions/checkout` and `actions/cache`),
+    # instead of one per action. Sub-actions of one repository (e.g.,
+    # `github/codeql-action/init` and `.../analyze`) already share a PR.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 #    ignore:
 #      - dependency-name: "actions/checkout"
 #      - dependency-name: "actions/setup-python"
@@ -15,3 +22,23 @@ updates:
 #      - dependency-name: "actions/upload-artifact"
 #      - dependency-name: "actions/download-artifact"
 #      - dependency-name: "actions/labeler"
+
+  # Maintain the GitHub Actions of the `wheels` branch, which builds and
+  # publishes the PyPI packages. Its actions are pinned to full commit SHAs
+  # with a `# vX.Y.Z` comment; Dependabot updates both. `target-branch` only
+  # applies to version updates. Dependabot security updates would only target
+  # the default branch, and they are disabled in this repository, so this
+  # monthly run is the only automatic update path for `wheels`: bump a pin by
+  # hand when a security advisory affects one of its actions.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "wheels"
+    schedule:
+      interval: "monthly"
+    # One PR for all actions, so related bumps (e.g., upload-artifact and
+    # download-artifact) land together. A distinct group name tells this PR
+    # apart from the one for `dev`.
+    groups:
+      wheels-actions:
+        patterns:
+          - "*"
