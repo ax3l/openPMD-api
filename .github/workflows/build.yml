@@ -1,6 +1,23 @@
 name: wheels
 
-on: [push, pull_request]
+# `push` only for `wheels` (where `publish` runs): other branches pushed to this
+# repository, e.g. Dependabot's, are built by their PR and would otherwise run
+# the full build twice (push + pull_request).
+on:
+  push:
+    branches: [wheels]
+  pull_request:
+
+# Least privilege by default. The publish job replaces this default with
+# `id-token: write` only, so it has no `contents` access (job-level
+# `permissions` replace the workflow-level ones, they do not add to them).
+# Actions are pinned to full commit SHAs (not movable tags/branches), with the
+# release as a `# vX.Y.Z` comment, the format Dependabot updates along with the
+# SHA. Dependabot only updates this branch once `.github/dependabot.yml` on
+# `dev` has a `github-actions` entry with `target-branch: "wheels"` (#1983);
+# until then, these pins (and their security fixes) must be bumped by hand.
+permissions:
+  contents: read
 
 env:
   SRC_REF: '0.17.1'
@@ -19,6 +36,8 @@ jobs:
   build_wheels:
     name: Build ${{ matrix.build || matrix.arch }} wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    outputs:
+      artifacts: ${{ strategy.job-total }}  # one wheels-* artifact per matrix job
     strategy:
       fail-fast: false
       matrix:
@@ -50,7 +69,6 @@ jobs:
           #- os: ubuntu-20.04
           #  arch: "ppc64le"
 
-          # builds faster on Travis-CI:
           # blocked by https://github.com/GTkorvo/dill/issues/15
           #- os: ubuntu-20.04
           #  arch: "s390x"
@@ -141,16 +159,16 @@ jobs:
             patches: ".github/setup-py-crosscompile-python.patch .github/cmakelists-hdf5-zlib-workaround.patch"
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
         path: 'src'
         ref: ${{ env.SRC_REF }}
 
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
         path: 'src/.github/'
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       name: Install Python
       with:
         python-version: "${{ matrix.host_python || '3.11' }}"
@@ -177,12 +195,13 @@ jobs:
         cd src
         python setup.py -q sdist --dist-dir ../sdist
 
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
       name: Upload sdist as GitHub artifact
       if: ${{ matrix.sdist }}
       with:
         name: sdist
         path: ./sdist
+        if-no-files-found: error
         overwrite: true
 
     - name: Build wheel
@@ -287,20 +306,12 @@ jobs:
         python -m pip install --upgrade cmake
         python -m cibuildwheel --output-dir ../wheelhouse
 
-    - uses: actions/upload-artifact@v7
-      name: Publish as GitHub artifact
-      with:
-        # Include matrix.build so the wasm legs (cp313 / cp314 / cp315, which share
-        # os=ubuntu-24.04 + arch=wasm32) get DISTINCT artifact names. matrix.artifact
-        # overrides it where build holds glob chars invalid in a name (Windows ARM64).
-        name: wheels-${{ matrix.os }}-${{ matrix.artifact || matrix.build || matrix.arch }}
-        path: ./wheelhouse
-        overwrite: true
-
     # Guard: a repaired Windows wheel must NOT vendor the VC++ runtime
-    # (see CIBW_REPAIR_WHEEL_COMMAND_WINDOWS). Fails the job before publishing
-    # if delvewheel bundled msvcp140.dll & friends.
+    # (see CIBW_REPAIR_WHEEL_COMMAND_WINDOWS). Runs BEFORE the artifact upload:
+    # every wheels-* artifact of the run gets published, so a wheel that fails
+    # this check must never become a wheels-* artifact.
     - name: Check wheels do not vendor the VC++ runtime
+      id: vcruntime
       if: runner.os == 'Windows'
       shell: bash
       run: |
@@ -308,37 +319,168 @@ jobs:
           python src/.github/check_no_vendored_runtime.py "$whl"
         done
 
-    - name: Publish on pypi.org
-      if: github.event_name == 'push' && github.repository == 'openPMD/openPMD-api' && github.ref == 'refs/heads/wheels'
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.pypa_gh_action_upload }}
-      run: |
-        python -m pip install -U twine
-        python -m twine upload --skip-existing wheelhouse/*
+    # Debugging aid: keep the wheels the guard rejected, under a name that the
+    # `wheels-*` pattern of the collect job does not match, so they can be
+    # downloaded and inspected but are never published. (The leg fails, so
+    # collect and publish do not run anyway.)
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+      name: Upload rejected wheels for inspection
+      if: ${{ failure() && steps.vcruntime.outcome == 'failure' }}
+      with:
+        name: rejected-wheels-${{ matrix.os }}-${{ matrix.artifact || matrix.build || matrix.arch }}
+        path: ./wheelhouse
+        if-no-files-found: warn
+        overwrite: true
 
-  # Publish the sdist last, so downstream user's and CI do not race for it
-  # before all binary wheels are published.
-  publish_sdist:
-    name: Publish sdist (last)
+    # Last step: every wheels-* artifact gets published (see the collect job).
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+      name: Publish as GitHub artifact
+      with:
+        # Include matrix.build so the wasm legs (cp313 / cp314 / cp315, which share
+        # os=ubuntu-24.04 + arch=wasm32) get DISTINCT artifact names. matrix.artifact
+        # overrides it where build holds glob chars invalid in a name (Windows ARM64).
+        name: wheels-${{ matrix.os }}-${{ matrix.artifact || matrix.build || matrix.arch }}
+        path: ./wheelhouse
+        if-no-files-found: error
+        overwrite: true
+
+  # Gathers all distributions of the run into one `dist` artifact, which the
+  # publish job uploads as is. Runs on PRs, too, so these checks are tested
+  # before a release run reaches them.
+  #
+  # Not merge-multiple: it silently corrupts files that exist in several
+  # artifacts (actions/download-artifact#395). The count catches artifacts
+  # missing from the listing, for which a `pattern` download does not fail
+  # (actions/download-artifact#505). Counting folders needs >= 2 matrix
+  # jobs: download-artifact puts a lone matching artifact directly in `path`.
+  collect:
+    name: Collect distributions
     needs: [build_wheels]
     runs-on: ubuntu-24.04
-    if: ${{ !cancelled() && github.event_name == 'push' && github.repository == 'openPMD/openPMD-api' && github.ref == 'refs/heads/wheels' }}
+    # `success()` explicitly: all build legs must have succeeded.
+    if: ${{ success() }}
     steps:
-    - uses: actions/download-artifact@v8
+    # Explicit defaults: "Collect wheels" counts one folder per artifact
+    # (merge-multiple: false), and a corrupted download must fail the job.
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+      with:
+        pattern: wheels-*
+        path: ./artifacts
+        merge-multiple: false
+        digest-mismatch: error
+
+    # By `name`: fails if the artifact is missing.
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
       with:
         name: sdist
-        path: ./wheelhouse
+        path: ./dist
+        digest-mismatch: error
 
-    - uses: actions/setup-python@v6
-      name: Install Python
-      with:
-        python-version: "3.14"
-
-    - name: Publish on pypi.org
+    - name: Collect wheels
+      shell: bash
       env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.pypa_gh_action_upload }}
+        EXPECTED: ${{ needs.build_wheels.outputs.artifacts }}
       run: |
-        python -m pip install -U twine
-        python -m twine upload --skip-existing wheelhouse/*
+        mkdir -p artifacts  # absent if no artifact matched: report 0 of N below
+        found=$(find artifacts -mindepth 1 -maxdepth 1 -type d | wc -l)
+        if [ "$found" != "$EXPECTED" ]; then
+          echo "::error::Downloaded $found of $EXPECTED wheels-* build artifacts"
+          exit 1
+        fi
+        dupes=$(find artifacts -name '*.whl' -printf '%f\n' | sort | uniq -d | tr '\n' ' ')
+        if [ -n "$dupes" ]; then
+          echo "::error::Wheels built by more than one job: $dupes"
+          exit 1
+        fi
+        find artifacts -name '*.whl' -exec mv -t dist/ {} +
+        ls -l dist/
+
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+      name: Upload distributions
+      with:
+        name: dist
+        path: ./dist
+        if-no-files-found: error
+        overwrite: true
+
+  # Publishing uses PyPI Trusted Publishing (OIDC, no long-lived API token) and
+  # pypa/gh-action-pypi-publish, which also generates and uploads PEP 740
+  # attestations (Sigstore-signed with this workflow's identity) per file.
+  #   https://docs.pypi.org/trusted-publishers/
+  #   https://docs.pypi.org/attestations/
+  # Requires, on PyPI, a trusted publisher for openPMD/openPMD-api with workflow
+  # `build.yml` and environment `pypi`, and on GitHub an environment `pypi` whose
+  # deployment branches are restricted to `wheels` (only runs on `wheels` can
+  # then mint an upload token). Renaming this file breaks the PyPI publisher.
+  #
+  # Building and publishing are separate jobs (as PyPA recommends): only this
+  # minimal job, which runs no build code, can request the OIDC token.
+  #
+  # The sdist is published last, so downstream users and CI do not race for it
+  # before all binary wheels are published: one twine upload call takes all
+  # files, and twine uploads the *.whl files first (_group_wheel_files_first).
+  # If an upload fails for good, twine stops: the wheels after it and the sdist
+  # are not uploaded. (twine 7.0.0 tries an upload up to 5 times on a 5xx
+  # response and retries failed connections; a 4xx, e.g. PyPI's 14-day lock,
+  # is final.) Re-running this job uploads the rest (skip-existing), but PyPI
+  # rejects new files on a release that is more than 14 days old, so that
+  # re-run must happen within this window.
+  #
+  # The PyPI upload token from the OIDC exchange expires 15 minutes after it is
+  # minted, and the action mints it before `twine check`, attestation signing
+  # and the uploads. If these together take longer, the remaining uploads fail
+  # with an authentication error; a re-run gets a fresh token and uploads the
+  # rest. `timeout-minutes` stops a stalled upload (twine sets no request
+  # timeout) from holding the `pypi-publish` concurrency group for 6 hours.
+  #
+  # All or nothing for the builds: this job only runs if every build leg
+  # succeeded, so no partial build (e.g. the sdist without some platform's
+  # wheels, which pip there would then build from source) is published. After
+  # fixing a failed leg, "Re-run failed jobs" re-runs this job, too.
+  publish:
+    name: Publish on PyPI
+    needs: [build_wheels, collect]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # `success()` explicitly: all build legs and `collect` must have succeeded.
+    if: ${{ success() && github.event_name == 'push' && github.repository == 'openPMD/openPMD-api' && github.ref == 'refs/heads/wheels' }}
+    # One publish at a time: two runs of the same version would otherwise upload
+    # concurrently and interleave files built by different commits. This does
+    # not stop runs one after the other from mixing commits: if a run uploads
+    # only part of a release, a later run of the same version uploads the rest
+    # (skip-existing) from its own commit.
+    # Job-level queueing follows the order in which runs finish their builds,
+    # not push order: while one publish runs (or waits for approval), a newly
+    # queued publish cancels the pending one, which can be a NEWER commit's
+    # (e.g. a postN bump). Re-run a publish that was cancelled this way.
+    concurrency:
+      group: pypi-publish
+      cancel-in-progress: false
+    environment:
+      name: pypi
+      url: https://pypi.org/p/openPMD-api
+    permissions:
+      id-token: write  # Trusted Publishing + attestation signing
+    steps:
+    # By `name`: exactly the files `collect` checked; fails if it is missing.
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+      with:
+        name: dist
+        path: ./dist
+        digest-mismatch: error
+
+    - name: List distributions
+      run: ls -l dist/
+
+    # Known limitation: the SHA pin fixes this action's scripts, but the action
+    # then runs a Docker image that it pulls by TAG
+    # (ghcr.io/pypa/gh-action-pypi-publish:<this SHA>, built FROM a floating
+    # python:3.13-slim). A tag is not content-addressed and upstream can rebuild
+    # it, so the code that gets the upload token and signs is not frozen.
+    - name: Publish on pypi.org
+      uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
+      with:
+        packages-dir: ./dist
+        skip-existing: true
+        verify-metadata: true  # twine check before any upload
+        attestations: true
